@@ -1,0 +1,682 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: kea-manager 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+msgid "  ● активен"
+msgstr "  ● active"
+
+msgid " (есть и lease6)"
+msgstr " (lease6 present too)"
+
+msgid "(без класса)"
+msgstr "(no class)"
+
+msgid "(не задано)"
+msgstr "(not set)"
+
+msgid "DHCP IPv6 не сконфигурирован"
+msgstr "DHCP IPv6 is not configured"
+
+msgid "DHCP-опции"
+msgstr "DHCP options"
+
+msgid "DHCP-опции {} — {}"
+msgstr "DHCP options {} — {}"
+
+msgid "DHCP-опция"
+msgstr "DHCP option"
+
+msgid "DHCPv4 (обязательно)"
+msgstr "DHCPv4 (required)"
+
+msgid "DHCPv4 и DHCPv6 должны слушать разные адрес/порт. Логин/пароль — при включённой аутентификации control-socket."
+msgstr "DHCPv4 and DHCPv6 must listen on different address/port. Username/password — when control-socket authentication is enabled."
+
+msgid "DHCPv6 (необязательно)"
+msgstr "DHCPv6 (optional)"
+
+msgid "DNS-серверы (dns-servers)"
+msgstr "DNS servers (dns-servers)"
+
+msgid "DNS-серверы (domain-name-servers)"
+msgstr "DNS servers (domain-name-servers)"
+
+msgid "HA также требует загруженной библиотеки libdhcp_lease_cmds.so для обмена арендами."
+msgstr "HA also requires the libdhcp_lease_cmds.so library loaded for lease sharing."
+
+msgid "ID (необязательно):"
+msgstr "ID (optional):"
+
+msgid "ID должен быть целым"
+msgstr "ID must be an integer"
+
+msgid "ID подсети должен быть целым числом"
+msgstr "Subnet ID must be an integer"
+
+msgid "IP-адрес"
+msgstr "IP address"
+
+msgid "IP-адрес (ip-address):"
+msgstr "IP address (ip-address):"
+
+msgid "IPv4 через запятую: 192.0.2.1, 192.0.2.2"
+msgstr "IPv4, comma-separated: 192.0.2.1, 192.0.2.2"
+
+msgid "IPv4 через запятую: 192.0.2.10"
+msgstr "IPv4, comma-separated: 192.0.2.10"
+
+msgid "IPv6 (kea-dhcp6) — не сконфигурировано"
+msgstr "IPv6 (kea-dhcp6) — not configured"
+
+msgid "IPv6 через запятую: 2001:db8::1"
+msgstr "IPv6, comma-separated: 2001:db8::1"
+
+msgid "IPv6 через запятую: 2001:db8::10"
+msgstr "IPv6, comma-separated: 2001:db8::10"
+
+msgid "MAC-адрес"
+msgstr "MAC address"
+
+msgid "MAC-адрес (hw-address):"
+msgstr "MAC address (hw-address):"
+
+msgid "NTP-серверы (time-servers)"
+msgstr "NTP servers (time-servers)"
+
+msgid "NTP/SNTP-серверы (sntp-servers)"
+msgstr "NTP/SNTP servers (sntp-servers)"
+
+msgid "Rebind timer, сек (T2):"
+msgstr "Rebind timer, sec (T2):"
+
+msgid "Renew timer, сек (T1):"
+msgstr "Renew timer, sec (T1):"
+
+msgid "always-send (отправлять всегда)"
+msgstr "always-send"
+
+msgid "kea-manager — редактор конфигурации Kea DHCP"
+msgstr "kea-manager — Kea DHCP configuration editor"
+
+msgid "lease{4,6}-get-page не поддерживается: загрузите hook libdhcp_lease_cmds."
+msgstr "lease{4,6}-get-page not supported: load the libdhcp_lease_cmds hook."
+
+msgid "Адрес"
+msgstr "Address"
+
+msgid "Адрес {} вне подсети {}"
+msgstr "Address {} is outside subnet {}"
+
+msgid "Аренд показано: {} (из файла)"
+msgstr "Leases shown: {} (from file)"
+
+msgid "Аренд показано: {} (по API)"
+msgstr "Leases shown: {} (via API)"
+
+msgid "Аренда {} не найдена на сервере (возможно, файл устарел). Обновите список."
+msgstr "Lease {} not found on the server (the file may be stale). Refresh the list."
+
+msgid "Аренда удалена."
+msgstr "Lease deleted."
+
+msgid "Аренды"
+msgstr "Leases"
+
+msgid "Аренды адресов"
+msgstr "Address leases"
+
+msgid "Введите имя опции Kea и значение вручную."
+msgstr "Enter the Kea option name and value manually."
+
+msgid "Версия {}"
+msgstr "Version {}"
+
+msgid "Включить HA (libdhcp_ha.so)"
+msgstr "Enable HA (libdhcp_ha.so)"
+
+msgid "Время аренды, сек (valid-lifetime):"
+msgstr "Lease time, sec (valid-lifetime):"
+
+msgid "Выберите аренду в таблице."
+msgstr "Select a lease in the table."
+
+msgid "Выберите подсеть для удаления."
+msgstr "Select a subnet to delete."
+
+msgid "Выберите узел в дереве слева, чтобы редактировать конфигурацию.\n\nСервер → IPv4 / IPv6 → подсети и пулы."
+msgstr "Select a node in the tree on the left to edit the configuration.\n\nServer → IPv4 / IPv6 → subnets and pools."
+
+msgid "Высокая доступность (HA)"
+msgstr "High Availability (HA)"
+
+msgid "Выход"
+msgstr "Exit"
+
+msgid "Глобальные DHCP-опции"
+msgstr "Global DHCP options"
+
+msgid "Готово"
+msgstr "Done"
+
+msgid "Диапазон 'A - B' или подсеть 'A/prefix':"
+msgstr "Range 'A - B' or subnet 'A/prefix':"
+
+msgid "Для файлового сервера измените каталог удалением и повторным добавлением."
+msgstr "For a file server, change the directory by removing and re-adding it."
+
+msgid "Добавить подсеть"
+msgstr "Add subnet"
+
+msgid "Добавить пул"
+msgstr "Add pool"
+
+msgid "Добавить сервер"
+msgstr "Add server"
+
+msgid "Добавить сервер (API)…"
+msgstr "Add server (API)…"
+
+msgid "Добавить сервер (каталог)…"
+msgstr "Add server (directory)…"
+
+msgid "Добавить…"
+msgstr "Add…"
+
+msgid "Доменное имя (domain-name)"
+msgstr "Domain name (domain-name)"
+
+msgid "Домены через запятую: a.example.org"
+msgstr "Domains, comma-separated: a.example.org"
+
+msgid "Домены через запятую: a.example.org, b.example.org"
+msgstr "Domains, comma-separated: a.example.org, b.example.org"
+
+msgid "Есть несохранённые изменения. Продолжить без сохранения?"
+msgstr "There are unsaved changes. Continue without saving?"
+
+msgid "Задайте IP-адрес и/или имя хоста"
+msgstr "Provide an IP address and/or hostname"
+
+msgid "Закрыть"
+msgstr "Close"
+
+msgid "Записаны файлы в {}:\n{}\n\nПерезагрузите службы Kea вручную, чтобы применить изменения."
+msgstr "Files written to {}:\n{}\n\nReload the Kea services manually to apply the changes."
+
+msgid "Значение"
+msgstr "Value"
+
+msgid "Значение (data):"
+msgstr "Value (data):"
+
+msgid "Значение опции не задано"
+msgstr "Option value is not set"
+
+msgid "Изменение"
+msgstr "Editing"
+
+msgid "Изменить…"
+msgstr "Edit…"
+
+msgid "Имя"
+msgstr "Name"
+
+msgid "Имя (name):"
+msgstr "Name (name):"
+
+msgid "Имя класса"
+msgstr "Class name"
+
+msgid "Имя класса (name):"
+msgstr "Class name (name):"
+
+msgid "Имя не может быть пустым"
+msgstr "Name cannot be empty"
+
+msgid "Имя опции:"
+msgstr "Option name:"
+
+msgid "Имя сервера"
+msgstr "Server name"
+
+msgid "Имя хоста"
+msgstr "Hostname"
+
+msgid "Имя хоста (hostname):"
+msgstr "Hostname (hostname):"
+
+msgid "Имя этого сервера (this-server-name):"
+msgstr "This server name (this-server-name):"
+
+msgid "Интерфейсы (через запятую):"
+msgstr "Interfaces (comma-separated):"
+
+msgid "Использовать HTTPS (TLS)"
+msgstr "Use HTTPS (TLS)"
+
+msgid "Истекает"
+msgstr "Expires"
+
+msgid "Каталог с conf-файлами Kea"
+msgstr "Directory with Kea conf files"
+
+msgid "Класс клиентов"
+msgstr "Client class"
+
+msgid "Класс клиентов (client-class):"
+msgstr "Client class (client-class):"
+
+msgid "Классы клиентов"
+msgstr "Client classes"
+
+msgid "Классы клиентов (client-classes)"
+msgstr "Client classes (client-classes)"
+
+msgid "Команда удаления аренды не поддерживается сервером.\nЗагрузите hook-библиотеку libdhcp_lease_cmds в Kea."
+msgstr "The lease deletion command is not supported by the server.\nLoad the libdhcp_lease_cmds hook library in Kea."
+
+msgid "Куда сохранить conf-файлы"
+msgstr "Where to save conf files"
+
+msgid "Логин:"
+msgstr "Username:"
+
+msgid "Маршрут {}: {}"
+msgstr "Route {}: {}"
+
+msgid "Маршрут {}: шлюз — {}"
+msgstr "Route {}: gateway — {}"
+
+msgid "Маршрут должен быть в формате 'подсеть - шлюз': {}"
+msgstr "Route must be in the format 'subnet - gateway': {}"
+
+msgid "Название сервера (отображается в дереве):"
+msgstr "Server name (shown in the tree):"
+
+msgid "Не задан путь к control-socket.\nОн берётся из секции control-socket конфигурации службы."
+msgstr "Control-socket path is not set.\nIt is taken from the control-socket section of the service configuration."
+
+msgid "Не задан хост"
+msgstr "Host is not set"
+
+msgid "Не задано значение опции"
+msgstr "Option value is not set"
+
+msgid "Не задано имя peer"
+msgstr "Peer name is not set"
+
+msgid "Не задано имя опции"
+msgstr "Option name is not set"
+
+msgid "Не найдено"
+msgstr "Not found"
+
+msgid "Не удалось подключиться:\n{}"
+msgstr "Failed to connect:\n{}"
+
+msgid "Недоступно"
+msgstr "Unavailable"
+
+msgid "Некорректное доменное имя: {}"
+msgstr "Invalid domain name: {}"
+
+msgid "Некорректный порт: {!r}"
+msgstr "Invalid port: {!r}"
+
+msgid "Некорректный порт: {}"
+msgstr "Invalid port: {}"
+
+msgid "Несохранённые изменения"
+msgstr "Unsaved changes"
+
+msgid "Нет серверов — «Файл → Добавить сервер…»"
+msgstr "No servers — “File → Add server…”"
+
+msgid "Новая подсеть"
+msgstr "New subnet"
+
+msgid "О программе"
+msgstr "About"
+
+msgid "Обновить"
+msgstr "Refresh"
+
+msgid "Общие настройки применены."
+msgstr "General settings applied."
+
+msgid "Общие настройки службы DHCP {}"
+msgstr "General DHCP {} service settings"
+
+msgid "Один или несколько IPv4 через запятую: 192.0.2.1"
+msgstr "One or more IPv4, comma-separated: 192.0.2.1"
+
+msgid "Опции класса: {}"
+msgstr "Class options: {}"
+
+msgid "Опции класса…"
+msgstr "Class options…"
+
+msgid "Опций"
+msgstr "Options"
+
+msgid "Опция"
+msgstr "Option"
+
+msgid "Опция:"
+msgstr "Option:"
+
+msgid "Основной шлюз (routers)"
+msgstr "Default gateway (routers)"
+
+msgid "Осталось"
+msgstr "Remaining"
+
+msgid "Отклонено сервером"
+msgstr "Rejected by server"
+
+msgid "Отключить HA"
+msgstr "Disable HA"
+
+msgid "Отмена"
+msgstr "Cancel"
+
+msgid "Ошибка"
+msgstr "Error"
+
+msgid "Ошибка подключения"
+msgstr "Connection error"
+
+msgid "Ошибка сервера"
+msgstr "Server error"
+
+msgid "Ошибка сервера: {}"
+msgstr "Server error: {}"
+
+msgid "Ошибка соединения"
+msgstr "Connection error"
+
+msgid "Ошибка соединения: {}"
+msgstr "Connection error: {}"
+
+msgid "Ошибка сохранения"
+msgstr "Save error"
+
+msgid "Ошибка чтения файла аренд: {}"
+msgstr "Error reading lease file: {}"
+
+msgid "Пароль"
+msgstr "Password"
+
+msgid "Пароль для {}@{}:"
+msgstr "Password for {}@{}:"
+
+msgid "Пароль:"
+msgstr "Password:"
+
+msgid "Партнёр HA"
+msgstr "HA peer"
+
+msgid "Партнёры (peers):"
+msgstr "Peers:"
+
+msgid "Перезапись"
+msgstr "Overwrite"
+
+msgid "Подключаться к DHCPv6"
+msgstr "Connect to DHCPv6"
+
+msgid "Подключение успешно: {}\n\nВерсия Kea: {}\nКоманд доступно: {}\nУправление арендами (lease_cmds): {}"
+msgstr "Connection successful: {}\n\nKea version: {}\nCommands available: {}\nLease management (lease_cmds): {}"
+
+msgid "Подключиться"
+msgstr "Connect"
+
+msgid "Подключиться к серверу Kea по API"
+msgstr "Connect to Kea server via API"
+
+msgid "Подсеть"
+msgstr "Subnet"
+
+msgid "Подсеть (CIDR):"
+msgstr "Subnet (CIDR):"
+
+msgid "Подсеть IPv{} (CIDR):"
+msgstr "IPv{} subnet (CIDR):"
+
+msgid "Подсеть сохранена."
+msgstr "Subnet saved."
+
+msgid "Подсеть: {}"
+msgstr "Subnet: {}"
+
+msgid "Подсеть: {} (id {})"
+msgstr "Subnet: {} (id {})"
+
+msgid "Подтверждение"
+msgstr "Confirmation"
+
+msgid "Поисковый домен (domain-search)"
+msgstr "Search domain (domain-search)"
+
+msgid "Показывать неактивные (отклонённые/освобождённые)"
+msgstr "Show inactive (declined/released)"
+
+msgid "Порт:"
+msgstr "Port:"
+
+msgid "Применено"
+msgstr "Applied"
+
+msgid "Применить"
+msgstr "Apply"
+
+msgid "Применить конфигурацию к работающему серверу Kea?\n\nБудет выполнено: config-test → config-set → config-write.\nИзменения вступят в силу немедленно, без перезапуска."
+msgstr "Apply the configuration to the running Kea server?\n\nWill run: config-test → config-set → config-write.\nChanges take effect immediately, without a restart."
+
+msgid "Применить на сервер"
+msgstr "Apply to server"
+
+msgid "Применить параметры HA"
+msgstr "Apply HA settings"
+
+msgid "Пример: option[60].text == 'CiscoIPPhone'"
+msgstr "Example: option[60].text == 'CiscoIPPhone'"
+
+msgid "Принудительно удалить аренду {} ({})?\n\nОперация затрагивает работающую службу Kea и требует загруженной hook-библиотеки lease_cmds."
+msgstr "Forcibly delete lease {} ({})?\n\nThis affects the running Kea service and requires the lease_cmds hook library loaded."
+
+msgid "Проверить соединение"
+msgstr "Test connection"
+
+msgid "Проверка соединения"
+msgstr "Connection test"
+
+msgid "Проверять сертификат (для HTTPS)"
+msgstr "Verify certificate (for HTTPS)"
+
+msgid "Пулы"
+msgstr "Pools"
+
+msgid "Пулы адресов:"
+msgstr "Address pools:"
+
+msgid "Путь к файлу аренд не задан."
+msgstr "Lease file path is not set."
+
+msgid "Редактор конфигурации Kea DHCP\nПоддерживаемая версия Kea: {}"
+msgstr "Kea DHCP configuration editor\nSupported Kea version: {}"
+
+msgid "Режим:"
+msgstr "Mode:"
+
+msgid "Режим: API (control-channel)"
+msgstr "Mode: API (control-channel)"
+
+msgid "Режим: локальные файлы"
+msgstr "Mode: local files"
+
+msgid "Режим: не подключено"
+msgstr "Mode: not connected"
+
+msgid "Резервирование"
+msgstr "Reservation"
+
+msgid "Резервирования"
+msgstr "Reservations"
+
+msgid "Резервирования адресов"
+msgstr "Address reservations"
+
+msgid "Роль"
+msgstr "Role"
+
+msgid "Роль (role):"
+msgstr "Role (role):"
+
+msgid "Сайт проекта:"
+msgstr "Project website:"
+
+msgid "Сервер {!r} уже есть. Перезаписать параметры?"
+msgstr "Server {!r} already exists. Overwrite its settings?"
+
+msgid "Сервер вернул ошибку: {}"
+msgstr "Server returned an error: {}"
+
+msgid "Сервер отверг конфигурацию:\n{}"
+msgstr "Server rejected the configuration:\n{}"
+
+msgid "Сконфигурировать IPv6"
+msgstr "Configure IPv6"
+
+msgid "Смена языка"
+msgstr "Language change"
+
+msgid "Сначала подключитесь к серверу."
+msgstr "Connect to a server first."
+
+msgid "Сначала сконфигурируйте IPv6."
+msgstr "Configure IPv6 first."
+
+msgid "Состояние"
+msgstr "State"
+
+msgid "Сохранение"
+msgstr "Saving"
+
+msgid "Сохранено"
+msgstr "Saved"
+
+msgid "Сохранить"
+msgstr "Save"
+
+msgid "Сохранить в каталог…"
+msgstr "Save to directory…"
+
+msgid "Список 'подсеть - шлюз' через запятую: 192.0.5.0/24 - 192.0.2.2"
+msgstr "List of 'subnet - gateway', comma-separated: 192.0.5.0/24 - 192.0.2.2"
+
+msgid "Справка"
+msgstr "Help"
+
+msgid "Статические маршруты (classless-static-route)"
+msgstr "Static routes (classless-static-route)"
+
+msgid "Строка: example.org"
+msgstr "String: example.org"
+
+msgid "Транспорт"
+msgstr "Transport"
+
+msgid "Удаление"
+msgstr "Deletion"
+
+msgid "Удаление сервера"
+msgstr "Remove server"
+
+msgid "Удалить"
+msgstr "Delete"
+
+msgid "Удалить аренду…"
+msgstr "Delete lease…"
+
+msgid "Удалить класс {!r}?"
+msgstr "Delete class {!r}?"
+
+msgid "Удалить конфигурацию HA (libdhcp_ha.so)?\nПрочие hook-библиотеки останутся без изменений."
+msgstr "Remove the HA configuration (libdhcp_ha.so)?\nOther hook libraries will remain unchanged."
+
+msgid "Удалить подсеть"
+msgstr "Delete subnet"
+
+msgid "Удалить подсеть {}?"
+msgstr "Delete subnet {}?"
+
+msgid "Удалить сервер"
+msgstr "Remove server"
+
+msgid "Удалить сервер {!r} из списка?"
+msgstr "Remove server {!r} from the list?"
+
+msgid "Условие (test)"
+msgstr "Condition (test)"
+
+msgid "Условие (test):"
+msgstr "Condition (test):"
+
+msgid "Файл"
+msgstr "File"
+
+msgid "Файл kea-dhcp6.conf не будет создан при сохранении.\nНажмите кнопку ниже, чтобы начать конфигурировать IPv6."
+msgstr "The kea-dhcp6.conf file will not be created on save.\nClick the button below to start configuring IPv6."
+
+msgid "Файл аренд (CSV):"
+msgstr "Lease file (CSV):"
+
+msgid "Файл аренд не найден: {}"
+msgstr "Lease file not found: {}"
+
+msgid "Хост:"
+msgstr "Host:"
+
+msgid "Язык"
+msgstr "Language"
+
+msgid "Язык интерфейса изменится после перезапуска приложения."
+msgstr "The interface language will change after restarting the application."
+
+msgid "выберите сервер в дереве или добавьте новый"
+msgstr "select a server in the tree or add a new one"
+
+msgid "глобальные настройки службы"
+msgstr "service global settings"
+
+msgid "да"
+msgstr "yes"
+
+msgid "класс {}"
+msgstr "class {}"
+
+msgid "не подключено"
+msgstr "not connected"
+
+msgid "нет"
+msgstr "no"
+
+msgid "новый проект"
+msgstr "new project"
+
+msgid "подсеть {}"
+msgstr "subnet {}"
+
+msgid "файлы: {}"
+msgstr "files: {}"
+
+msgid "— произвольная опция —"
+msgstr "— custom option —"
+
+msgid "● есть несохранённые изменения"
+msgstr "● unsaved changes"
+

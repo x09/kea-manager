@@ -1,0 +1,10 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: kea-manager 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ru\n"
+
+# Исходные строки интерфейса уже на русском (msgid == текст на русском),
+# поэтому перевод для русского не требуется: gettext возвращает msgid как
+# есть. Этот файл существует для полноты структуры locale/.
