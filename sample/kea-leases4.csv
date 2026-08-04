@@ -1,0 +1,4 @@
+address,hwaddr,client_id,valid_lifetime,expire,subnet_id,fqdn_fwd,fqdn_rev,hostname,state,user_context,pool_id
+192.0.2.100,1a:1b:1c:1d:1e:01,,4000,4102444800,1,0,0,pc-reception,0,,0
+192.0.2.101,1a:1b:1c:1d:1e:02,,4000,4102444800,1,1,1,pc-office,0,,0
+192.0.2.102,1a:1b:1c:1d:1e:03,,4000,4102444800,1,0,0,,0,,0
