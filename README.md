@@ -1,4 +1,4 @@
-# kea-manager v1.0
+# kea-manager
 
 Редактор конфигурации служб **kea-dhcp4** и **kea-dhcp6** (Kea DHCP) в стиле
 оснастки Microsoft DHCP. Слева — дерево «Сервер → IPv4 / IPv6 → подсети»,
@@ -6,6 +6,9 @@
 
 Целевая версия Kea: **3.2.0**. Служба `kea-dhcp-ddns` (d2) в этой версии
 не настраивается и не поддерживается.
+
+<img width="1250" height="662" alt="изображение" src="https://github.com/user-attachments/assets/1f966e63-935a-4dfd-9628-90494daeca2a" />
+
 
 ## Возможности
 
