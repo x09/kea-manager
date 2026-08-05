@@ -709,18 +709,24 @@ class LeasesPanel(BasePanel):
                   font=("TkDefaultFont", 13, "bold")).grid(
             row=0, column=0, columnspan=3, sticky="w", **PAD)
 
-        # пути
-        ttk.Label(self, text=_("Файл аренд (CSV):")).grid(
-            row=1, column=0, sticky="w", **PAD)
+        # пути (только для чтения: значения берутся из конфигурации службы)
+        self.lease_label = ttk.Label(self, text=_("Файл аренд (CSV):"))
+        self.lease_label.grid(row=1, column=0, sticky="w", **PAD)
         self.lease_path_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.lease_path_var, width=48).grid(
-            row=1, column=1, sticky="we", **PAD)
+        self.lease_entry = ttk.Entry(
+            self, textvariable=self.lease_path_var, width=48,
+            state="readonly")
+        self.lease_entry.grid(row=1, column=1, sticky="we", **PAD)
 
-        ttk.Label(self, text="Control-socket:").grid(
-            row=2, column=0, sticky="w", **PAD)
+        # строка control-socket нужна только в файловом режиме (для удаления
+        # аренды через unix-сокет); в API-режиме удаление идёт по HTTP
+        self.socket_label = ttk.Label(self, text="Control-socket:")
+        self.socket_label.grid(row=2, column=0, sticky="w", **PAD)
         self.socket_path_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.socket_path_var, width=48).grid(
-            row=2, column=1, sticky="we", **PAD)
+        self.socket_entry = ttk.Entry(
+            self, textvariable=self.socket_path_var, width=48,
+            state="readonly")
+        self.socket_entry.grid(row=2, column=1, sticky="we", **PAD)
 
         self.show_inactive_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(self, text=_("Показывать неактивные (отклонённые/освобождённые)"),
@@ -764,6 +770,21 @@ class LeasesPanel(BasePanel):
         self.lease_path_var.set(lp or "")
         sp = ctrlsocket.guess_socket_path(cfg.dhcp)
         self.socket_path_var.set(sp or "")
+
+        # control-socket показываем только в файловом режиме
+        if api_backend is not None:
+            self.socket_label.grid_remove()
+            self.socket_entry.grid_remove()
+            # в API-режиме файл аренд на локальной ФС недоступен —
+            # аренды читаются по API, путь-подсказка неинформативен
+            self.lease_label.grid_remove()
+            self.lease_entry.grid_remove()
+        else:
+            self.socket_label.grid()
+            self.socket_entry.grid()
+            self.lease_label.grid()
+            self.lease_entry.grid()
+
         self.reload()
 
     def reload(self):
