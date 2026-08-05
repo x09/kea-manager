@@ -7,8 +7,7 @@
 Целевая версия Kea: **3.2.0**. Служба `kea-dhcp-ddns` (d2) в этой версии
 не настраивается и не поддерживается.
 
-<img width="1250" height="662" alt="изображение" src="https://github.com/user-attachments/assets/1f966e63-935a-4dfd-9628-90494daeca2a" />
-
+<img width="1273" height="650" alt="kea manager" src="https://github.com/user-attachments/assets/aa32d5fa-925a-4676-ab6e-7afeb372e214" />
 
 ## Возможности
 
