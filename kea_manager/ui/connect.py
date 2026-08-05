@@ -76,21 +76,55 @@ class ConnectDialog(tk.Toplevel):
         ttk.Entry(f6, textvariable=self.port6_var, width=8).grid(
             row=1, column=3, sticky="w", **PAD)
 
+        # -- сертификаты TLS (mutual TLS, для серверов с cert-required)
+        fc = ttk.LabelFrame(
+            self, text=_("Сертификаты TLS (для HTTPS)"), padding=8)
+        fc.grid(row=3, column=0, sticky="we", **PAD)
+
+        self.ca_var = tk.StringVar(value=ini.get("ca_cert", ""))
+        self.cert_var = tk.StringVar(value=ini.get("client_cert", ""))
+        self.key_var = tk.StringVar(value=ini.get("client_key", ""))
+        self._cert_row(fc, 0, _("CA-сертификат (trust-anchor):"), self.ca_var)
+        self._cert_row(fc, 1, _("Клиентский сертификат:"), self.cert_var)
+        self._cert_row(fc, 2, _("Клиентский ключ:"), self.key_var)
+        ttk.Label(
+            fc,
+            text=_("Клиентский сертификат нужен, если на сервере включён "
+                   "cert-required. Можно совмещать с логином/паролем."),
+            foreground="#546e7a", wraplength=420, justify="left").grid(
+            row=3, column=0, columnspan=3, sticky="w", **PAD)
+
         hint = ttk.Label(
             self,
             text=_("DHCPv4 и DHCPv6 должны слушать разные адрес/порт. "
                  "Логин/пароль — при включённой аутентификации control-socket."),
             foreground="#546e7a", wraplength=420, justify="left")
-        hint.grid(row=3, column=0, sticky="w", **PAD)
+        hint.grid(row=4, column=0, sticky="w", **PAD)
 
         row = ttk.Frame(self)
-        row.grid(row=4, column=0, sticky="we", **PAD)
+        row.grid(row=5, column=0, sticky="we", **PAD)
         ttk.Button(row, text=_("Проверить соединение"),
                    command=self._test_connection).pack(side="left")
         ttk.Button(row, text=_("Подключиться"), command=self._ok).pack(
             side="right", padx=4)
         ttk.Button(row, text=_("Отмена"), command=self.destroy).pack(side="right")
         self.bind("<Escape>", lambda e: self.destroy())
+
+    def _cert_row(self, parent, row, label, var):
+        ttk.Label(parent, text=label).grid(
+            row=row, column=0, sticky="w", **PAD)
+        ttk.Entry(parent, textvariable=var, width=32).grid(
+            row=row, column=1, sticky="we", **PAD)
+        ttk.Button(parent, text="…", width=3,
+                   command=lambda: self._pick_file(var)).grid(
+            row=row, column=2, sticky="w", **PAD)
+
+    def _pick_file(self, var):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            title=_("Выберите файл сертификата/ключа"), parent=self)
+        if path:
+            var.set(path)
 
     def _test_connection(self):
         """Проверить доступность DHCPv4-эндпоинта без загрузки конфигурации."""
@@ -152,7 +186,10 @@ class ConnectDialog(tk.Toplevel):
             host=host, port=port, use_tls=self.tls_var.get(),
             username=self.user_var.get().strip() or None,
             password=self.pass_var.get() or None,
-            verify=self.verify_var.get())
+            verify=self.verify_var.get(),
+            client_cert=self.cert_var.get().strip() or None,
+            client_key=self.key_var.get().strip() or None,
+            ca_cert=self.ca_var.get().strip() or None)
 
     def values(self) -> dict:
         """Текущие значения полей (для сохранения настроек, без пароля)."""
@@ -165,6 +202,9 @@ class ConnectDialog(tk.Toplevel):
             "v6_enabled": self.v6_var.get(),
             "host6": self.host6_var.get().strip(),
             "port6": self.port6_var.get().strip(),
+            "client_cert": self.cert_var.get().strip(),
+            "client_key": self.key_var.get().strip(),
+            "ca_cert": self.ca_var.get().strip(),
         }
 
     def _ok(self):
