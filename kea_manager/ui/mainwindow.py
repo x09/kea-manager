@@ -41,6 +41,7 @@ class MainWindow(tk.Tk):
 
         # иконки создаём после инициализации корневого окна
         self.icons = Icons()
+        self._set_window_icon()
 
         self._build_menu()
         self._build_layout()
@@ -98,6 +99,41 @@ class MainWindow(tk.Tk):
     def show_about(self):
         AboutDialog(self)
 
+    def _set_window_icon(self):
+        """Установить иконку окна из icons/ (PNG разных размеров).
+
+        Ищем в каталоге рядом с проектом и в системном
+        /usr/share/kea-manager/icons. Молча пропускаем, если не найдено.
+        """
+        import os as _os
+        here = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        candidates = [
+            _os.path.join(here, "..", "icons"),   # корень проекта/icons
+            _os.path.join(here, "icons"),         # пакет/icons (если положат)
+            "/usr/share/kea-manager/icons",
+        ]
+        imgs = []
+        for base in candidates:
+            base = _os.path.normpath(base)
+            if not _os.path.isdir(base):
+                continue
+            for sz in (256, 128, 64, 32):
+                p = _os.path.join(base, f"kea-manager-{sz}.png")
+                if _os.path.isfile(p):
+                    try:
+                        imgs.append(tk.PhotoImage(file=p))
+                    except tk.TclError:
+                        pass
+            if imgs:
+                break
+        if imgs:
+            try:
+                # несколько размеров — WM сам выберет подходящий
+                self.iconphoto(True, *imgs)
+                self._icon_refs = imgs  # защита от сборки мусора
+            except tk.TclError:
+                pass
+
     def _tb_button(self, parent, text, command, icon_name):
         """Кнопка тулбара с иконкой (если иконка доступна)."""
         img = self.icons.get(icon_name)
@@ -132,6 +168,8 @@ class MainWindow(tk.Tk):
 
         left = ttk.Frame(paned, width=300)
         self.tree = ttk.Treeview(left, show="tree")
+        # активный сервер выделяем зелёным цветом текста
+        self.tree.tag_configure("active", foreground="#2e7d32")
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
         self.tree.bind("<Button-3>", self._on_right_click)
@@ -186,13 +224,14 @@ class MainWindow(tk.Tk):
             _("● есть несохранённые изменения") if self.dirty else "")
 
     # ------------------------------------------------------------- дерево
-    def _ins(self, parent, text, icon_name, open=False):
+    def _ins(self, parent, text, icon_name, open=False, tags=()):
         """Вставить узел дерева с иконкой (если доступна)."""
         img = self.icons.get(icon_name)
         if img is not None:
             return self.tree.insert(parent, "end", text=" " + text,
-                                    image=img, open=open)
-        return self.tree.insert(parent, "end", text=text, open=open)
+                                    image=img, open=open, tags=tags)
+        return self.tree.insert(parent, "end", text=text, open=open,
+                                tags=tags)
 
     def refresh_tree(self):
         self.tree.delete(*self.tree.get_children())
@@ -210,7 +249,8 @@ class MainWindow(tk.Tk):
             icon = "server"
             suffix = _("  ● активен") if is_active else ""
             node = self._ins("", f"{srv.name}{suffix}", icon,
-                             open=is_active)
+                             open=is_active,
+                             tags=("active",) if is_active else ())
             self.node_info[node] = {"type": "server", "server": srv.name}
             if is_active and self.project is not None:
                 self._insert_server_services(node)
@@ -406,19 +446,14 @@ class MainWindow(tk.Tk):
             "host4": srv.host4, "port4": srv.port4,
             "v6_enabled": srv.v6_enabled, "host6": srv.host6,
             "port6": srv.port6,
+            "client_cert": srv.client_cert, "client_key": srv.client_key,
+            "ca_cert": srv.ca_cert,
         }
         dlg = ConnectDialog(self, initial=initial)
         self.wait_window(dlg)
         if dlg.result is None:
             return
-        vals = dlg.values()
-        entry = settings.ServerEntry(
-            name=name, kind="api",
-            host4=vals["host4"], port4=str(vals["port4"]),
-            tls=vals["tls"], verify=vals["verify"],
-            username=vals["username"], v6_enabled=vals["v6_enabled"],
-            host6=vals["host6"], port6=str(vals["port6"]))
-        settings.save_server(entry)
+        settings.save_server(self._entry_from_values(name, dlg.values()))
         self.refresh_tree()
 
     # -------------------------------------------------------- операции
@@ -493,16 +528,23 @@ class MainWindow(tk.Tk):
         name = self._ask_server_name(default=vals.get("host4", ""))
         if not name:
             return
-        entry = settings.ServerEntry(
+        settings.save_server(self._entry_from_values(name, vals))
+        self.refresh_tree()
+        # сразу подключимся к добавленному серверу
+        self._connect_server(name)
+
+    @staticmethod
+    def _entry_from_values(name, vals):
+        """Собрать ServerEntry(kind=api) из значений диалога подключения."""
+        return settings.ServerEntry(
             name=name, kind="api",
             host4=vals["host4"], port4=str(vals["port4"]),
             tls=vals["tls"], verify=vals["verify"],
             username=vals["username"], v6_enabled=vals["v6_enabled"],
-            host6=vals["host6"], port6=str(vals["port6"]))
-        settings.save_server(entry)
-        self.refresh_tree()
-        # сразу подключимся к добавленному серверу
-        self._connect_server(name)
+            host6=vals["host6"], port6=str(vals["port6"]),
+            client_cert=vals.get("client_cert", ""),
+            client_key=vals.get("client_key", ""),
+            ca_cert=vals.get("ca_cert", ""))
 
     def add_server_file(self):
         """Добавить сервер типа «локальный каталог»."""
@@ -586,9 +628,13 @@ class MainWindow(tk.Tk):
             messagebox.showerror(
                 _("Ошибка"), _("Некорректный порт: {}").format(srv.port4))
             return None
+        certs = dict(
+            client_cert=srv.client_cert or None,
+            client_key=srv.client_key or None,
+            ca_cert=srv.ca_cert or None)
         ep4 = Endpoint(host=srv.host4, port=port4, use_tls=srv.tls,
                        username=srv.username or None, password=password,
-                       verify=srv.verify)
+                       verify=srv.verify, **certs)
         ep6 = None
         if srv.v6_enabled:
             try:
@@ -597,7 +643,7 @@ class MainWindow(tk.Tk):
                 port6 = port4
             ep6 = Endpoint(host=srv.host6, port=port6, use_tls=srv.tls,
                            username=srv.username or None, password=password,
-                           verify=srv.verify)
+                           verify=srv.verify, **certs)
         return ApiBackend(ep4, ep6)
 
     def remove_server(self, name: str):
