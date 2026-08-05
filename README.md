@@ -218,7 +218,8 @@ kea_manager/
   i18n.py             инициализация gettext, поиск переводов
   ui/connect.py       диалог подключения по API
   locale/             переводы (en/.po+.mo, ru/.po)
-tools/                pocompile.py (.po→.mo), make_en_po.py, wrap_i18n.py
+tools/                pocompile.py (.po→.mo), make_en_po.py, wrap_i18n.py, gen-tls-certs.sh
+icons/                пиктограммы в разных размерах
 tests/test_core.py    тесты ядра
 sample/               пример конфигурации и файла аренд для проверки
 ```
