@@ -200,7 +200,10 @@ class KeaHttpClient(KeaClientBase):
                  username: Optional[str] = None,
                  password: Optional[str] = None,
                  timeout: float = 10.0, verify: bool = True,
-                 path: str = "/"):
+                 path: str = "/",
+                 client_cert: Optional[str] = None,
+                 client_key: Optional[str] = None,
+                 ca_cert: Optional[str] = None):
         self.host = host
         self.port = port
         self.use_tls = use_tls
@@ -209,6 +212,11 @@ class KeaHttpClient(KeaClientBase):
         self.timeout = timeout
         self.verify = verify
         self.path = path or "/"
+        # клиентский сертификат (mutual TLS) — для серверов с cert-required
+        self.client_cert = client_cert
+        self.client_key = client_key
+        # доверенный CA для проверки серверного сертификата (самоподписанный)
+        self.ca_cert = ca_cert
 
     def _auth_header(self) -> Optional[str]:
         if not self.username:
@@ -223,9 +231,19 @@ class KeaHttpClient(KeaClientBase):
         if self.use_tls:
             import ssl
             if self.verify:
-                ctx = ssl.create_default_context()
+                # доверяем системным CA либо явно указанному (самоподписанному)
+                ctx = ssl.create_default_context(cafile=self.ca_cert)
             else:
                 ctx = ssl._create_unverified_context()
+            # клиентский сертификат для mutual TLS (cert-required на сервере)
+            if self.client_cert:
+                try:
+                    ctx.load_cert_chain(certfile=self.client_cert,
+                                        keyfile=self.client_key or None)
+                except (ssl.SSLError, OSError) as exc:
+                    raise ControlSocketError(
+                        f"Не удалось загрузить клиентский сертификат: {exc}"
+                    ) from exc
             conn = http.client.HTTPSConnection(
                 self.host, self.port, timeout=self.timeout, context=ctx)
         else:
