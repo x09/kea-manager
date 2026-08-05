@@ -7,8 +7,13 @@
 # CA не требует внешнего доверия (это нормально для закрытой сети).
 #
 # Использование:
-#   sh tools/gen-tls-certs.sh [OUTDIR] [SERVER_IP]
-# по умолчанию OUTDIR=/etc/kea/tls, SERVER_IP=127.0.0.1
+#   sh tools/gen-tls-certs.sh [OUTDIR] [ADDR ...]
+# по умолчанию OUTDIR=/etc/kea/tls, ADDR=127.0.0.1
+#
+# ADDR — один или несколько адресов/имён, по которым клиент будет
+# подключаться к серверу (по ним TLS сверяет сертификат). Можно передать
+# несколько: IP-адреса и DNS-имена. 127.0.0.1 добавляется автоматически.
+# Пример: sh tools/gen-tls-certs.sh /etc/kea/tls 192.168.150.10 kea.local
 #
 # Требует openssl. Скрипт ничего не устанавливает и не перезапускает —
 # только создаёт файлы и печатает фрагмент конфигурации Kea.
@@ -16,11 +21,41 @@
 set -e
 
 OUTDIR="${1:-/etc/kea/tls}"
-SERVER_IP="${2:-127.0.0.1}"
+shift 2>/dev/null || true
+if [ "$#" -eq 0 ]; then
+    set -- 127.0.0.1
+fi
+# основной адрес (для CN и для примера конфига) — первый аргумент
+PRIMARY="$1"
 DAYS=3650
 
+# Собираем список SAN: все переданные адреса + 127.0.0.1.
+# IP и DNS-имена различаем простым шаблоном (только цифры и точки => IP).
+SAN=""
+add_san() {
+    _v="$1"
+    case "$_v" in
+        *[!0-9.]*) _type="DNS" ;;   # есть не-цифра/точка => имя
+        *) _type="IP" ;;
+    esac
+    if [ -z "$SAN" ]; then
+        SAN="${_type}:${_v}"
+    else
+        SAN="${SAN}, ${_type}:${_v}"
+    fi
+}
+for a in "$@"; do
+    add_san "$a"
+done
+# гарантированно добавим localhost, если его не указали
+case " $* " in
+    *" 127.0.0.1 "*) : ;;
+    *) add_san "127.0.0.1" ;;
+esac
+
 echo "Каталог вывода : $OUTDIR"
-echo "Адрес сервера  : $SERVER_IP"
+echo "Основной адрес : $PRIMARY"
+echo "SAN сертификата: $SAN"
 echo
 
 mkdir -p "$OUTDIR"
@@ -38,15 +73,15 @@ else
     echo "CA уже существует, пропускаю."
 fi
 
-# --- 2. Серверный сертификат (SAN = IP сервера) -----------------------------
+# --- 2. Серверный сертификат (SAN = все переданные адреса) ------------------
 cat > server-ext.cnf <<EOF
-subjectAltName = IP:${SERVER_IP}
+subjectAltName = ${SAN}
 extendedKeyUsage = serverAuth
 EOF
 
 openssl genrsa -out server-key.pem 4096
 openssl req -new -key server-key.pem \
-    -subj "/CN=${SERVER_IP}" -out server.csr
+    -subj "/CN=${PRIMARY}" -out server.csr
 openssl x509 -req -in server.csr -CA ca-cert.pem -CAkey ca-key.pem \
     -CAcreateserial -days "$DAYS" -sha256 \
     -extfile server-ext.cnf -out server-cert.pem
@@ -91,7 +126,7 @@ cat <<EOF
   "control-sockets": [
     {
       "socket-type": "https",
-      "socket-address": "${SERVER_IP}",
+      "socket-address": "0.0.0.0",
       "socket-port": 8123,
       "trust-anchor": "${OUTDIR}/ca-cert.pem",
       "cert-file": "${OUTDIR}/server-cert.pem",
