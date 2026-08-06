@@ -8,7 +8,12 @@
 
 Служба `kea-dhcp-ddns` (d2) в этой версии не настраивается и не поддерживается.
 
-<img width="1273" height="650" alt="kea manager" src="https://github.com/user-attachments/assets/aa32d5fa-925a-4676-ab6e-7afeb372e214" />
+<img width="1273" height="769" alt="kea-manager" src="https://github.com/user-attachments/assets/c01934d5-615d-4d7d-bab7-bff1cbbbcd5b" />
+
+<img width="1266" height="771" alt="kea-manager HA" src="https://github.com/user-attachments/assets/7d1bd8d1-d54a-4a02-933e-6d6ff462792e" />
+
+<img width="1266" height="771" alt="kea-manager DHCP options" src="https://github.com/user-attachments/assets/8ab65e09-06d7-41ed-a2d5-4ec57f833d26" />
+
 
 ## Возможности
 
