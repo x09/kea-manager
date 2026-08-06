@@ -18,7 +18,7 @@ from ..util import ctrlsocket
 from ..util import settings
 from .panels import (WelcomePanel, ServicePanel, SubnetPanel,
                      ReservationsPanel, OptionsPanel, LeasesPanel,
-                     HaPanel, ClassesPanel)
+                     HaPanel, ClassesPanel, HooksPanel)
 from .connect import ConnectDialog
 from .about import AboutDialog
 from .icons import Icons
@@ -29,7 +29,9 @@ class MainWindow(tk.Tk):
                  startup_server: Optional[str] = None):
         super().__init__()
         self.title(_("kea-manager — редактор конфигурации Kea DHCP"))
-        self.geometry("960x600")
+        # восстановить размер/позицию окна из настроек (или значение по умолч.)
+        saved_geom = settings.get_window_geometry()
+        self.geometry(saved_geom if saved_geom else "960x600")
 
         # project — конфигурация активного сервера (None, пока не подключён).
         self.project = project
@@ -283,6 +285,9 @@ class MainWindow(tk.Tk):
         # Высокая доступность
         ha = self._ins(parent, _("Высокая доступность (HA)"), "ha")
         self.node_info[ha] = {"type": "ha", "family": cfg.family}
+        # Hook-библиотеки
+        hooks = self._ins(parent, _("Hook-библиотеки"), "options")
+        self.node_info[hooks] = {"type": "hooks", "family": cfg.family}
         # Аренды
         leases = self._ins(parent, _("Аренды"), "leases")
         self.node_info[leases] = {"type": "leases", "family": cfg.family}
@@ -358,6 +363,10 @@ class MainWindow(tk.Tk):
             panel.load(cfg, api_backend=backend)
         elif t == "ha":
             panel = HaPanel(self.right, on_change=self._mark_dirty)
+            self._show_panel(panel)
+            panel.load(cfg)
+        elif t == "hooks":
+            panel = HooksPanel(self.right, on_change=self._mark_dirty)
             self._show_panel(panel)
             panel.load(cfg)
         elif t == "classes":
@@ -757,6 +766,11 @@ class MainWindow(tk.Tk):
 
     def _on_close(self):
         if self._confirm_discard():
+            # сохранить размер/позицию окна для следующего запуска
+            try:
+                settings.set_window_geometry(self.winfo_geometry())
+            except Exception:  # noqa: BLE001 — не мешаем закрытию
+                pass
             self.destroy()
 
 
