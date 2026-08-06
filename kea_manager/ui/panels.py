@@ -20,6 +20,8 @@ from ..model import options as opts
 from ..model import leases as leasemod
 from ..model import ha as hamod
 from ..model import classes as classmod
+from ..model import hooks as hooksmod
+from ..util import settings
 from ..util import validators as V
 from ..util import ctrlsocket
 from . import inputmask
@@ -1361,3 +1363,282 @@ class ClassOptionsDialog(tk.Toplevel):
         ttk.Button(self, text=_("Закрыть"), command=self.destroy).pack(
             side="bottom", anchor="e", padx=8, pady=6)
         self.bind("<Escape>", lambda e: self.destroy())
+
+
+# ==========================================================================
+# Hook-библиотеки
+# ==========================================================================
+
+class HooksPanel(BasePanel):
+    """Управление hook-библиотеками: загрузка/выгрузка и параметры.
+
+    Список = встроенный каталог Kea + пользовательские имена (из ini).
+    Загрузка = наличие записи в hooks-libraries конфига. Существование
+    .so-файла не проверяется (через API это невозможно).
+    """
+
+    def __init__(self, master, **kw):
+        super().__init__(master, **kw)
+        self.cfg: Optional[DhcpConfig] = None
+
+        ttk.Label(self, text=_("Hook-библиотеки"),
+                  font=("TkDefaultFont", 13, "bold")).grid(
+            row=0, column=0, columnspan=3, sticky="w", **PAD)
+
+        ttk.Label(
+            self,
+            text=_("Отметьте библиотеки для загрузки. Они должны быть "
+                   "установлены в системе — наличие файлов не проверяется."),
+            foreground="#546e7a", wraplength=560, justify="left").grid(
+            row=1, column=0, columnspan=3, sticky="w", **PAD)
+
+        # каталог хуков
+        dirbar = ttk.Frame(self)
+        dirbar.grid(row=2, column=0, columnspan=3, sticky="we", **PAD)
+        ttk.Label(dirbar, text=_("Каталог библиотек:")).pack(side="left")
+        self.dir_var = tk.StringVar()
+        ttk.Entry(dirbar, textvariable=self.dir_var, width=40).pack(
+            side="left", padx=4)
+        ttk.Button(dirbar, text=_("Применить путь"),
+                   command=self._apply_dir).pack(side="left")
+
+        # таблица хуков
+        cols = ("load", "name", "desc", "params")
+        self.tree = ttk.Treeview(self, columns=cols, show="headings",
+                                 height=14)
+        self.tree.heading("load", text=_("Загрузить"))
+        self.tree.heading("name", text=_("Библиотека"))
+        self.tree.heading("desc", text=_("Назначение"))
+        self.tree.heading("params", text=_("Параметры"))
+        self.tree.column("load", width=80, anchor="center")
+        self.tree.column("name", width=190)
+        self.tree.column("desc", width=210)
+        self.tree.column("params", width=80, anchor="center")
+        self.tree.grid(row=3, column=0, columnspan=2, sticky="nsew", **PAD)
+        self.tree.bind("<Button-1>", self._on_click)
+        self.tree.bind("<Double-1>", lambda e: self._edit_params())
+
+        btns = ttk.Frame(self)
+        btns.grid(row=3, column=2, sticky="n", **PAD)
+        ttk.Button(btns, text=_("Параметры…"),
+                   command=self._edit_params).pack(fill="x", pady=2)
+        ttk.Button(btns, text=_("Добавить свой…"),
+                   command=self._add_custom).pack(fill="x", pady=2)
+        ttk.Button(btns, text=_("Удалить свой"),
+                   command=self._del_custom).pack(fill="x", pady=2)
+
+        self.status_var = tk.StringVar()
+        ttk.Label(self, textvariable=self.status_var,
+                  foreground="#546e7a").grid(
+            row=4, column=0, columnspan=3, sticky="w", **PAD)
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(3, weight=1)
+
+    # -- данные -----------------------------------------------------------
+
+    def load(self, cfg: DhcpConfig):
+        self.cfg = cfg
+        self.dir_var.set(settings.get_hooks_dir())
+        self._refresh()
+
+    def _all_hook_names(self):
+        """Имена хуков: встроенные + пользовательские + реально загруженные."""
+        names = [h.filename for h in hooksmod.KNOWN_HOOKS]
+        for n in settings.get_custom_hooks():
+            if n not in names:
+                names.append(n)
+        # хуки, загруженные в конфиг, но неизвестные — тоже показать
+        for n in hooksmod.loaded_hooks(self.cfg.dhcp):
+            if n not in names:
+                names.append(n)
+        return names
+
+    def _refresh(self):
+        self.tree.delete(*self.tree.get_children())
+        if self.cfg is None:
+            return
+        for name in self._all_hook_names():
+            hd = hooksmod.known_by_name(name)
+            loaded = hooksmod.is_loaded(self.cfg.dhcp, name)
+            applicable = hd.dhcp_applicable if hd else True
+            desc = hd.label if hd else _("пользовательская библиотека")
+            check = "☑" if loaded else "☐"
+            if not applicable:
+                check = "—"  # неактивна (например, D2-хук)
+            has_params = hooksmod.get_parameters(self.cfg.dhcp, name)
+            pstr = _("есть") if has_params else ""
+            self.tree.insert("", "end", iid=name,
+                             values=(check, name, desc, pstr))
+        self._update_status()
+
+    def _update_status(self):
+        n = len(hooksmod.loaded_hooks(self.cfg.dhcp)) if self.cfg else 0
+        self.status_var.set(_("Загружено библиотек: {}").format(n))
+
+    # -- взаимодействие ---------------------------------------------------
+
+    def _selected(self) -> Optional[str]:
+        sel = self.tree.selection()
+        return sel[0] if sel else None
+
+    def _on_click(self, event):
+        # клик по колонке «Загрузить» переключает состояние
+        if self.tree.identify_region(event.x, event.y) != "cell":
+            return
+        if self.tree.identify_column(event.x) != "#1":
+            return
+        name = self.tree.identify_row(event.y)
+        if name:
+            self._toggle(name)
+
+    def _toggle(self, name: str):
+        if self.cfg is None:
+            return
+        hd = hooksmod.known_by_name(name)
+        if hd and not hd.dhcp_applicable:
+            messagebox.showinfo(
+                _("Недоступно"),
+                _("Библиотека {} не настраивается в DHCP-сервере.\n{}")
+                .format(name, hd.note))
+            return
+        if name == "libdhcp_ha.so":
+            messagebox.showinfo(
+                _("HA"),
+                _("HA настраивается на вкладке «Высокая доступность (HA)»."))
+            return
+        if hooksmod.is_loaded(self.cfg.dhcp, name):
+            hooksmod.disable(self.cfg.dhcp, name)
+        else:
+            hooksmod.enable(self.cfg.dhcp, name, self.dir_var.get().strip()
+                            or hooksmod.DEFAULT_HOOKS_DIR)
+        self._refresh()
+        self._notify()
+
+    def _apply_dir(self):
+        directory = self.dir_var.get().strip()
+        settings.set_hooks_dir(directory)
+        # обновить путь у всех уже загруженных известных/пользовательских хуков
+        if self.cfg is not None and directory:
+            for name in hooksmod.loaded_hooks(self.cfg.dhcp):
+                if name != "libdhcp_ha.so":
+                    hooksmod.set_library_path(self.cfg.dhcp, name, directory)
+            self._notify()
+        messagebox.showinfo(_("Готово"), _("Путь к библиотекам сохранён."))
+
+    def _edit_params(self):
+        name = self._selected()
+        if name is None or self.cfg is None:
+            return
+        if not hooksmod.is_loaded(self.cfg.dhcp, name):
+            messagebox.showinfo(
+                _("Параметры"),
+                _("Сначала загрузите библиотеку (отметьте «Загрузить»)."))
+            return
+        if name == "libdhcp_ha.so":
+            messagebox.showinfo(
+                _("HA"),
+                _("Параметры HA задаются на вкладке «Высокая доступность»."))
+            return
+        cur = hooksmod.get_parameters(self.cfg.dhcp, name) or {}
+        dlg = HookParamsDialog(self, name, cur)
+        self.wait_window(dlg)
+        if dlg.result is not None:
+            hooksmod.set_parameters(self.cfg.dhcp, name, dlg.result)
+            self._refresh()
+            self._notify()
+
+    def _add_custom(self):
+        from tkinter import simpledialog
+        name = simpledialog.askstring(
+            _("Своя библиотека"),
+            _("Имя файла библиотеки (например, libdhcp_custom.so):"),
+            parent=self)
+        if not name:
+            return
+        name = name.strip()
+        if not name.endswith(".so"):
+            messagebox.showerror(_("Ошибка"),
+                                 _("Имя должно оканчиваться на .so"))
+            return
+        custom = settings.get_custom_hooks()
+        if name not in custom:
+            custom.append(name)
+            settings.set_custom_hooks(custom)
+        self._refresh()
+
+    def _del_custom(self):
+        name = self._selected()
+        if name is None:
+            return
+        if hooksmod.known_by_name(name) is not None:
+            messagebox.showinfo(
+                _("Удаление"),
+                _("Встроенные библиотеки из списка не удаляются."))
+            return
+        custom = [n for n in settings.get_custom_hooks() if n != name]
+        settings.set_custom_hooks(custom)
+        # если была загружена — выгрузим из конфига
+        if self.cfg is not None and hooksmod.is_loaded(self.cfg.dhcp, name):
+            hooksmod.disable(self.cfg.dhcp, name)
+            self._notify()
+        self._refresh()
+
+
+class HookParamsDialog(tk.Toplevel):
+    """Редактор parameters хука в виде JSON-текста (generic)."""
+
+    def __init__(self, master, name: str, params: Dict[str, Any]):
+        super().__init__(master)
+        self.title(_("Параметры: {}").format(name))
+        self.transient(master)
+        try:
+            self.wait_visibility()
+            self.grab_set()
+        except tk.TclError:
+            pass
+        self.result: Optional[Dict[str, Any]] = None
+
+        ttk.Label(self, text=_("Параметры библиотеки в формате JSON:")).pack(
+            anchor="w", padx=8, pady=(8, 2))
+        self.txt = tk.Text(self, width=54, height=14, wrap="none")
+        self.txt.pack(fill="both", expand=True, padx=8)
+        import json as _json
+        self.txt.insert("1.0", _json.dumps(params, ensure_ascii=False,
+                                           indent=2) if params else "{\n}")
+
+        ttk.Label(
+            self,
+            text=_("Пустой объект {} — без параметров. См. документацию Kea "
+                   "по конкретной библиотеке."),
+            foreground="#546e7a", wraplength=420, justify="left").pack(
+            anchor="w", padx=8, pady=2)
+
+        row = ttk.Frame(self)
+        row.pack(fill="x", padx=8, pady=6)
+        ttk.Button(row, text="OK", command=self._ok).pack(side="right", padx=4)
+        ttk.Button(row, text=_("Отмена"), command=self.destroy).pack(
+            side="right")
+        self.bind("<Escape>", lambda e: self.destroy())
+
+    def _ok(self):
+        import json as _json
+        raw = self.txt.get("1.0", "end").strip()
+        if not raw:
+            self.result = {}
+            self.destroy()
+            return
+        try:
+            data = _json.loads(raw)
+        except _json.JSONDecodeError as exc:
+            messagebox.showerror(_("Ошибка"),
+                                 _("Некорректный JSON: {}").format(exc),
+                                 parent=self)
+            return
+        if not isinstance(data, dict):
+            messagebox.showerror(_("Ошибка"),
+                                 _("Параметры должны быть JSON-объектом {}"),
+                                 parent=self)
+            return
+        self.result = data
+        self.destroy()
