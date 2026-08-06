@@ -55,6 +55,10 @@ class ServerEntry:
     v6_enabled: bool = False
     host6: str = "127.0.0.1"
     port6: str = "8001"
+    # mutual TLS (клиентский сертификат)
+    client_cert: str = ""
+    client_key: str = ""
+    ca_cert: str = ""
     # для file
     directory: str = ""
 
@@ -165,6 +169,58 @@ def set_language(lang: str) -> None:
     _write_parser(parser)
 
 
+def get_window_geometry() -> Optional[str]:
+    """Строка геометрии окна (напр. '960x600+100+50') или None."""
+    parser = _read_parser()
+    if parser.has_section("ui"):
+        g = parser["ui"].get("geometry", "")
+        return g or None
+    return None
+
+
+def set_window_geometry(geometry: str) -> None:
+    parser = _read_parser()
+    if "ui" not in parser:
+        parser["ui"] = {}
+    parser["ui"]["geometry"] = geometry or ""
+    _write_parser(parser)
+
+
+def get_hooks_dir(default: str = "/usr/lib64/kea/hooks") -> str:
+    """Каталог с hook-библиотеками (может отличаться между системами)."""
+    parser = _read_parser()
+    if parser.has_section("hooks"):
+        return parser["hooks"].get("directory", default) or default
+    return default
+
+
+def set_hooks_dir(directory: str) -> None:
+    parser = _read_parser()
+    if "hooks" not in parser:
+        parser["hooks"] = {}
+    parser["hooks"]["directory"] = directory or ""
+    _write_parser(parser)
+
+
+def get_custom_hooks() -> List[str]:
+    """Пользовательские имена хуков (добавленные вручную к встроенному списку)."""
+    parser = _read_parser()
+    if parser.has_section("hooks"):
+        raw = parser["hooks"].get("custom", "")
+        return [x.strip() for x in raw.split(",") if x.strip()]
+    return []
+
+
+def set_custom_hooks(names: List[str]) -> None:
+    parser = _read_parser()
+    if "hooks" not in parser:
+        parser["hooks"] = {}
+    # запятая — разделитель; имена .so запятых не содержат
+    parser["hooks"]["custom"] = ",".join(
+        dict.fromkeys(n.strip() for n in names if n.strip()))
+    _write_parser(parser)
+
+
 def list_servers() -> List[ServerEntry]:
     """Вернуть список сохранённых серверов (в порядке секций ini)."""
     parser = _read_parser()
@@ -185,6 +241,9 @@ def list_servers() -> List[ServerEntry]:
             v6_enabled=s.getboolean("v6_enabled", fallback=False),
             host6=s.get("host6", "127.0.0.1"),
             port6=s.get("port6", "8001"),
+            client_cert=s.get("client_cert", ""),
+            client_key=s.get("client_key", ""),
+            ca_cert=s.get("ca_cert", ""),
             directory=s.get("directory", ""),
         ))
     return out
@@ -211,6 +270,9 @@ def save_server(entry: ServerEntry) -> None:
         "v6_enabled": str(bool(entry.v6_enabled)).lower(),
         "host6": entry.host6 or "",
         "port6": str(entry.port6 or ""),
+        "client_cert": entry.client_cert or "",
+        "client_key": entry.client_key or "",
+        "ca_cert": entry.ca_cert or "",
         "directory": entry.directory or "",
     }
     _write_parser(parser)
