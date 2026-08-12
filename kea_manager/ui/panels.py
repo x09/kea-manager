@@ -21,6 +21,7 @@ from ..model import leases as leasemod
 from ..model import ha as hamod
 from ..model import classes as classmod
 from ..model import hooks as hooksmod
+from ..model import statistics as statmod
 from ..util import settings
 from ..util import validators as V
 from ..util import ctrlsocket
@@ -1642,3 +1643,311 @@ class HookParamsDialog(tk.Toplevel):
             return
         self.result = data
         self.destroy()
+
+
+# ==========================================================================
+# Мониторинг (статистика)
+# ==========================================================================
+
+class MonitoringPanel(BasePanel):
+    """Мониторинг метрик Kea в реальном времени.
+
+    Dashboard с ключевыми показателями + детальная таблица всех метрик.
+    Автообновление с настраиваемым интервалом (только пока панель активна).
+    Только для API-режима.
+    """
+
+    def __init__(self, master, **kw):
+        super().__init__(master, **kw)
+        self.cfg: Optional[DhcpConfig] = None
+        self.backend = None  # ApiBackend
+        self._poll_id = None  # ID задачи after() для отмены
+        self._prev_snapshot: Optional[statmod.Snapshot] = None
+        self._curr_snapshot: Optional[statmod.Snapshot] = None
+        self._interval_sec = 10  # дефолтный интервал
+
+        ttk.Label(self, text=_("Мониторинг"),
+                  font=("TkDefaultFont", 13, "bold")).grid(
+            row=0, column=0, columnspan=2, sticky="w", **PAD)
+
+        # панель управления (интервал + кнопка обновить)
+        controls = ttk.Frame(self)
+        controls.grid(row=1, column=0, columnspan=2, sticky="we", **PAD)
+        ttk.Label(controls, text=_("Интервал обновления:")).pack(side="left")
+        self.interval_var = tk.StringVar(value="10 сек")
+        intervals = ["5 сек", "10 сек", "30 сек", "1 мин", _("вручную")]
+        combo = ttk.Combobox(controls, textvariable=self.interval_var,
+                             values=intervals, state="readonly", width=12)
+        combo.pack(side="left", padx=4)
+        combo.bind("<<ComboboxSelected>>", lambda e: self._change_interval())
+        ttk.Button(controls, text=_("Обновить сейчас"),
+                   command=self._refresh_now).pack(side="left", padx=4)
+        self.status_var = tk.StringVar()
+        ttk.Label(controls, textvariable=self.status_var,
+                  foreground="#546e7a").pack(side="left", padx=8)
+
+        # dashboard (верхняя часть с карточками)
+        dash = ttk.LabelFrame(self, text=_("Ключевые показатели"))
+        dash.grid(row=2, column=0, columnspan=2, sticky="we", **PAD)
+        self._build_dashboard(dash)
+
+        # детальная таблица (все метрики)
+        table_frame = ttk.LabelFrame(self, text=_("Все метрики"))
+        table_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", **PAD)
+        self._build_table(table_frame)
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(3, weight=1)
+
+    def _build_dashboard(self, parent):
+        """Карточки с ключевыми показателями + мини-график."""
+        # 4 карточки в ряд: пакеты, адреса, ошибки, топ-подсеть
+        cards = ttk.Frame(parent)
+        cards.pack(fill="x", padx=4, pady=4)
+        for i in range(4):
+            cards.columnconfigure(i, weight=1, uniform="card")
+
+        self.card_packets = self._card(cards, _("Пакеты получено"), "—")
+        self.card_packets.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+
+        self.card_addresses = self._card(cards, _("Адресов выдано"), "—")
+        self.card_addresses.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
+
+        self.card_errors = self._card(cards, _("Ошибки (NAK)"), "—")
+        self.card_errors.grid(row=0, column=2, sticky="nsew", padx=2, pady=2)
+
+        self.card_top = self._card(cards, _("Топ-подсеть"), "—")
+        self.card_top.grid(row=0, column=3, sticky="nsew", padx=2, pady=2)
+
+        # мини-график динамики (пакеты/сек) — если доступен matplotlib
+        self._chart_rates = []  # история значений rate
+        self._chart = None
+        self._chart_canvas = None
+        self._init_chart(parent)
+
+    def _init_chart(self, parent):
+        """Инициализировать matplotlib-график (мягкая деградация)."""
+        try:
+            import matplotlib
+            matplotlib.use("TkAgg")
+            from matplotlib.figure import Figure
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        except Exception:  # noqa: BLE001 — matplotlib недоступен
+            return
+        fig = Figure(figsize=(6, 1.6), dpi=72)
+        self._chart_ax = fig.add_subplot(111)
+        self._chart_ax.set_title(_("Пакетов/сек"), fontsize=9)
+        self._chart_ax.tick_params(labelsize=7)
+        fig.tight_layout()
+        canvas = FigureCanvasTkAgg(fig, master=parent)
+        canvas.get_tk_widget().pack(fill="x", padx=4, pady=(0, 4))
+        self._chart = fig
+        self._chart_canvas = canvas
+
+    def _update_chart(self, rate: Optional[float]):
+        """Добавить точку в график и перерисовать."""
+        if self._chart is None or rate is None:
+            return
+        self._chart_rates.append(rate)
+        # держим последние 30 точек
+        if len(self._chart_rates) > 30:
+            self._chart_rates = self._chart_rates[-30:]
+        self._chart_ax.clear()
+        self._chart_ax.set_title(_("Пакетов/сек"), fontsize=9)
+        self._chart_ax.tick_params(labelsize=7)
+        self._chart_ax.plot(self._chart_rates, color="#1565c0", linewidth=1.5)
+        self._chart_ax.fill_between(
+            range(len(self._chart_rates)), self._chart_rates,
+            color="#1565c0", alpha=0.15)
+        self._chart_ax.set_ylim(bottom=0)
+        try:
+            self._chart_canvas.draw_idle()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _card(self, parent, title: str, value: str) -> ttk.Frame:
+        """Создать карточку dashboard."""
+        frame = ttk.Frame(parent, relief="solid", borderwidth=1)
+        ttk.Label(frame, text=title, font=("TkDefaultFont", 9),
+                  foreground="#546e7a").pack(anchor="w", padx=4, pady=(4, 0))
+        lbl = ttk.Label(frame, text=value, font=("TkDefaultFont", 14, "bold"))
+        lbl.pack(anchor="w", padx=4, pady=(0, 4))
+        frame._value_label = lbl  # сохраним ссылку для обновления
+        return frame
+
+    def _build_table(self, parent):
+        """Детальная таблица метрик."""
+        # фильтр по имени
+        filter_frame = ttk.Frame(parent)
+        filter_frame.pack(fill="x", padx=4, pady=2)
+        ttk.Label(filter_frame, text=_("Фильтр:")).pack(side="left")
+        self.filter_var = tk.StringVar()
+        self.filter_var.trace_add("write", lambda *a: self._apply_filter())
+        ttk.Entry(filter_frame, textvariable=self.filter_var, width=30).pack(
+            side="left", padx=4)
+
+        cols = ("name", "value", "timestamp")
+        self.tree = ttk.Treeview(parent, columns=cols, show="tree headings",
+                                 height=12)
+        self.tree.heading("#0", text=_("Группа"))
+        self.tree.heading("name", text=_("Метрика"))
+        self.tree.heading("value", text=_("Значение"))
+        self.tree.heading("timestamp", text=_("Обновлено"))
+        self.tree.column("#0", width=120)
+        self.tree.column("name", width=280)
+        self.tree.column("value", width=100, anchor="e")
+        self.tree.column("timestamp", width=100)
+        self.tree.pack(fill="both", expand=True, padx=4, pady=2)
+
+    # -- данные -----------------------------------------------------------
+
+    def load(self, cfg: DhcpConfig, backend):
+        self.cfg = cfg
+        self.backend = backend
+        # проверка режима API
+        if not hasattr(backend, "kind") or backend.kind != "api":
+            self._show_not_available()
+            return
+        self._refresh_now()
+        self._schedule_poll()
+
+    def _show_not_available(self):
+        """Заглушка для файлового режима."""
+        self.status_var.set(_("Доступно только при подключении к API"))
+        for w in (self.card_packets, self.card_addresses, self.card_errors,
+                  self.card_top):
+            w._value_label.config(text="—", foreground="#9e9e9e")
+
+    def _refresh_now(self):
+        """Получить статистику с сервера и обновить UI."""
+        if self.backend is None or self.cfg is None:
+            return
+        if not hasattr(self.backend, "kind") or self.backend.kind != "api":
+            return
+        try:
+            # выбираем endpoint в зависимости от семейства
+            ep = (self.backend.ep_v4 if self.cfg.family == 4
+                  else self.backend.ep_v6)
+            if ep is None:
+                self.status_var.set(_("Служба не подключена"))
+                return
+            # Endpoint.client() создаёт клиент с правильным TLS/сертификатами
+            client = ep.client(timeout=8)
+            resp = client.send_command("statistic-get-all")
+            metrics = statmod.parse_stat_response(resp)
+            import time
+            self._prev_snapshot = self._curr_snapshot
+            self._curr_snapshot = statmod.Snapshot(time.time(), metrics)
+            self._update_ui()
+            self.status_var.set(_("Обновлено: {}").format(
+                time.strftime("%H:%M:%S")))
+        except Exception as exc:  # noqa: BLE001
+            self.status_var.set(_("Ошибка: {}").format(str(exc)[:60]))
+
+    def _update_ui(self):
+        """Обновить dashboard и таблицу на основе текущего снимка."""
+        if self._curr_snapshot is None:
+            return
+        snap = self._curr_snapshot
+        m = snap.metrics
+
+        # карточка: пакеты получено
+        key_pkt = "pkt4-received" if self.cfg.family == 4 else "pkt6-received"
+        total_pkt = snap.get(key_pkt, 0)
+        rate_pkt = statmod.compute_rate(self._prev_snapshot, snap, key_pkt)
+        if rate_pkt is not None:
+            self.card_packets._value_label.config(
+                text=f"{total_pkt} (↑{rate_pkt:.1f}/сек)")
+        else:
+            self.card_packets._value_label.config(text=str(total_pkt))
+        # обновляем мини-график динамики пакетов
+        self._update_chart(rate_pkt)
+
+        # карточка: адреса
+        assigned = snap.get("assigned-addresses", 0)
+        total_addr = snap.get("total-addresses", 0)
+        if total_addr > 0:
+            pct = (float(assigned) / float(total_addr)) * 100
+            self.card_addresses._value_label.config(
+                text=f"{assigned}/{total_addr} ({pct:.1f}%)")
+        else:
+            self.card_addresses._value_label.config(text=str(assigned))
+
+        # карточка: ошибки (NAK)
+        nak_key = "pkt4-nak-sent" if self.cfg.family == 4 else "pkt6-reply-sent"
+        nak = snap.get(nak_key, 0)
+        self.card_errors._value_label.config(text=str(nak))
+
+        # карточка: топ-подсеть
+        top = statmod.top_subnet_by_usage(m)
+        if top:
+            sid, pct = top
+            self.card_top._value_label.config(
+                text=f"subnet[{sid}] {pct:.1f}%")
+        else:
+            self.card_top._value_label.config(text="—")
+
+        # таблица
+        self._refresh_table()
+
+    def _refresh_table(self):
+        """Обновить детальную таблицу метрик."""
+        self.tree.delete(*self.tree.get_children())
+        if self._curr_snapshot is None:
+            return
+        snap = self._curr_snapshot
+        groups = statmod.group_metrics(snap.metrics)
+        filt = self.filter_var.get().strip().lower()
+
+        for gname, items in [("Пакеты", groups["packets"]),
+                             ("Адреса", groups["addresses"]),
+                             ("Подсети", groups["subnets"]),
+                             ("Прочее", groups["other"])]:
+            if not items:
+                continue
+            gid = self.tree.insert("", "end", text=gname, open=True)
+            for name, val in items:
+                if filt and filt not in name.lower():
+                    continue
+                self.tree.insert(gid, "end", values=(name, val, ""))
+
+    def _apply_filter(self):
+        """Применить фильтр по имени метрики."""
+        self._refresh_table()
+
+    # -- автообновление ---------------------------------------------------
+
+    def _change_interval(self):
+        """Изменить интервал обновления."""
+        txt = self.interval_var.get()
+        if "5" in txt:
+            self._interval_sec = 5
+        elif "10" in txt:
+            self._interval_sec = 10
+        elif "30" in txt:
+            self._interval_sec = 30
+        elif "1" in txt or "мин" in txt.lower():
+            self._interval_sec = 60
+        else:
+            self._interval_sec = 0  # вручную
+        self._schedule_poll()
+
+    def _schedule_poll(self):
+        """Запланировать следующий опрос."""
+        if self._poll_id is not None:
+            self.after_cancel(self._poll_id)
+            self._poll_id = None
+        if self._interval_sec > 0:
+            self._poll_id = self.after(self._interval_sec * 1000,
+                                       self._do_poll)
+
+    def _do_poll(self):
+        """Callback автообновления."""
+        self._refresh_now()
+        self._schedule_poll()
+
+    def stop_polling(self):
+        """Остановить автообновление (вызывается при переключении панели)."""
+        if self._poll_id is not None:
+            self.after_cancel(self._poll_id)
+            self._poll_id = None

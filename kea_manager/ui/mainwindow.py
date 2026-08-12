@@ -18,7 +18,7 @@ from ..util import ctrlsocket
 from ..util import settings
 from .panels import (WelcomePanel, ServicePanel, SubnetPanel,
                      ReservationsPanel, OptionsPanel, LeasesPanel,
-                     HaPanel, ClassesPanel, HooksPanel)
+                     HaPanel, ClassesPanel, HooksPanel, MonitoringPanel)
 from .connect import ConnectDialog
 from .about import AboutDialog
 from .icons import Icons
@@ -288,6 +288,9 @@ class MainWindow(tk.Tk):
         # Hook-библиотеки
         hooks = self._ins(parent, _("Hook-библиотеки"), "options")
         self.node_info[hooks] = {"type": "hooks", "family": cfg.family}
+        # Мониторинг
+        monitoring = self._ins(parent, _("Мониторинг"), "leases")
+        self.node_info[monitoring] = {"type": "monitoring", "family": cfg.family}
         # Аренды
         leases = self._ins(parent, _("Аренды"), "leases")
         self.node_info[leases] = {"type": "leases", "family": cfg.family}
@@ -322,6 +325,9 @@ class MainWindow(tk.Tk):
     # ------------------------------------------------------------ панели
     def _show_panel(self, panel: tk.Widget):
         if self._current_panel is not None:
+            # остановить автообновление мониторинга, если оно было
+            if hasattr(self._current_panel, "stop_polling"):
+                self._current_panel.stop_polling()
             self._current_panel.destroy()
         self._current_panel = panel
         panel.pack(fill="both", expand=True)
@@ -369,6 +375,10 @@ class MainWindow(tk.Tk):
             panel = HooksPanel(self.right, on_change=self._mark_dirty)
             self._show_panel(panel)
             panel.load(cfg)
+        elif t == "monitoring":
+            panel = MonitoringPanel(self.right)
+            self._show_panel(panel)
+            panel.load(cfg, self.project.backend if self.project else None)
         elif t == "classes":
             panel = ClassesPanel(self.right, on_change=self._mark_dirty)
             self._show_panel(panel)
