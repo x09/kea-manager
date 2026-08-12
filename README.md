@@ -45,7 +45,7 @@ DHCP-опции (`option-data`):
   `classless-static-route`, `time-servers` (для IPv6 — `dns-servers`,
   `domain-search`, `sntp-servers`), плюс ввод произвольной опции.
 
-Мониторинг и управление арендами:
+Управление арендами:
 
 - Узел «Аренды» под каждой службой. Чтение файла аренд memfile
   (`kea-leases4.csv` / `kea-leases6.csv`) с дедупликацией «побеждает
