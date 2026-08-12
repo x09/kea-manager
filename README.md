@@ -14,6 +14,8 @@
 
 <img width="1266" height="771" alt="kea-manager DHCP options" src="https://github.com/user-attachments/assets/8ab65e09-06d7-41ed-a2d5-4ec57f833d26" />
 
+<img width="1919" height="1047" alt="kea-manager monitoring" src="https://github.com/user-attachments/assets/ed1d8f36-42e9-4220-8592-80e8d17e379a" />
+
 
 ## Возможности
 
