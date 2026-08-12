@@ -1,6 +1,6 @@
 Name:          kea-manager
 Version:       1.0
-Release:       alt1.git8f5acdd
+Release:       alt1.git6f34e67
 License:       %gpl3only
 Group:         System/Configuration/Other
 Source:        %name-v%version.tgz
@@ -12,6 +12,7 @@ Url:           https://github.com/x09/kea-manager
 BuildRequires: 	rpm-build-licenses
 
 Requires: 	python3-modules-tkinter
+Requires:       python3-module-matplotlib
 Requires: 	python3
 
 %add_python3_path %_datadir/%name
@@ -68,5 +69,11 @@ chmod 755 %buildroot/%_bindir/kea-manager
 
 
 %changelog
+* Wed Aug 12 2026 Anton Shevtsov <shevtsov.anton@gmail.com> 1.0-alt1.git6f34e67
+- Add monitoring feature (python3-module-matplotlib requires)
+
+* Wed Aug 12 2026 Anton Shevtsov <shevtsov.anton@gmail.com> 1.0-alt1.git09fc927
+- 09fc927 build 
+
 * Wed Aug 05 2026 Anton Shevtsov <shevtsov.anton@gmail.com> 1.0-alt1
 - First version
