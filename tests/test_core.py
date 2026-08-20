@@ -22,6 +22,7 @@ from kea_manager.model import leases as LEASES
 from kea_manager.model import ha as HA
 from kea_manager.model import classes as CLS
 from kea_manager.model import leases as LEASES2  # noqa: F401 (алиас не нужен)
+from kea_manager.model import statistics as STATS
 from kea_manager.model.backend import Endpoint, ApiBackend, FileBackend
 from kea_manager.util import ctrlsocket
 from kea_manager.util import settings as SETTINGS
@@ -445,7 +446,7 @@ class TestHA(unittest.TestCase):
     def test_disable_preserves_other_hooks(self):
         cfg = DhcpConfig.new(4)
         HA.hooks_libraries(cfg.dhcp).append(
-            {"library": "/usr/lib/kea/hooks/libdhcp_lease_cmds.so"})
+            {"library": "/usr/lib64/kea/hooks/libdhcp_lease_cmds.so"})
         HA.enable_ha(cfg.dhcp)
         HA.disable_ha(cfg.dhcp)
         libs = cfg.dhcp["hooks-libraries"]
@@ -607,6 +608,81 @@ class TestHttpClient(unittest.TestCase):
                 c.send_command("config-set", {"Dhcp4": {}})
 
 
+class TestMutualTLS(unittest.TestCase):
+    """mutual TLS: сервер с CERT_REQUIRED принимает только клиента с сертификатом."""
+
+    @classmethod
+    def _gen_certs(cls, d):
+        import subprocess
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script = os.path.join(here, "tools", "gen-tls-certs.sh")
+        subprocess.run(["sh", script, d, "127.0.0.1"],
+                       check=True, capture_output=True)
+
+    def _serve(self, d):
+        import ssl as _ssl
+        import http.server
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                n = int(self.headers.get("Content-Length", 0))
+                self.rfile.read(n)
+                data = json.dumps({"result": 0, "text": "3.2.0"}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+        ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(d + "/server-cert.pem", d + "/server-key.pem")
+        ctx.load_verify_locations(d + "/ca-cert.pem")
+        ctx.verify_mode = _ssl.CERT_REQUIRED
+        httpd = http.server.HTTPServer(("127.0.0.1", 0), H)
+        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+        t = threading.Thread(target=httpd.serve_forever, daemon=True)
+        t.start()
+        return httpd
+
+    def test_client_cert_required(self):
+        import shutil
+        if shutil.which("openssl") is None:
+            self.skipTest("openssl недоступен")
+        with tempfile.TemporaryDirectory() as d:
+            self._gen_certs(d)
+            httpd = self._serve(d)
+            try:
+                port = httpd.server_address[1]
+                # без клиентского сертификата — отказ
+                c = ctrlsocket.KeaHttpClient(
+                    "127.0.0.1", port, use_tls=True, verify=True,
+                    ca_cert=d + "/ca-cert.pem", timeout=5)
+                with self.assertRaises(ctrlsocket.ControlSocketError):
+                    c.send_command("version-get")
+                # с клиентским сертификатом — успех
+                c2 = ctrlsocket.KeaHttpClient(
+                    "127.0.0.1", port, use_tls=True, verify=True,
+                    ca_cert=d + "/ca-cert.pem",
+                    client_cert=d + "/client-cert.pem",
+                    client_key=d + "/client-key.pem", timeout=5)
+                resp = c2.send_command("version-get")
+                self.assertEqual(resp["result"], 0)
+            finally:
+                httpd.shutdown()
+
+    def test_endpoint_passes_cert_params(self):
+        from kea_manager.model.backend import Endpoint
+        ep = Endpoint(host="h", port=1, use_tls=True,
+                      client_cert="/c.pem", client_key="/k.pem",
+                      ca_cert="/ca.pem")
+        cl = ep.client()
+        self.assertEqual(cl.client_cert, "/c.pem")
+        self.assertEqual(cl.client_key, "/k.pem")
+        self.assertEqual(cl.ca_cert, "/ca.pem")
+
+
 class TestApiBackend(unittest.TestCase):
     def test_config_get_load(self):
         cfg_body = {"Dhcp4": {"valid-lifetime": 4000,
@@ -698,6 +774,109 @@ class TestApiBackend(unittest.TestCase):
             self.assertEqual(recs[0].expire, 5000)  # cltt + valid-lft
 
 
+class TestStatistics(unittest.TestCase):
+    def test_parse_response(self):
+        resp = {"result": 0, "arguments": {
+            "pkt4-received": [[1234, "2026-08-05 12:00:00"]],
+            "assigned-addresses": [[50, "..."]],
+        }}
+        m = STATS.parse_stat_response(resp)
+        self.assertEqual(m["pkt4-received"], 1234)
+        self.assertEqual(m["assigned-addresses"], 50)
+
+    def test_parse_empty(self):
+        self.assertEqual(STATS.parse_stat_response({}), {})
+        self.assertEqual(STATS.parse_stat_response({"arguments": []}), {})
+
+    def test_group_metrics(self):
+        m = {"pkt4-received": 1, "pkt4-ack-sent": 2,
+             "assigned-addresses": 3,
+             "subnet[1].assigned-addresses": 4}
+        g = STATS.group_metrics(m)
+        self.assertEqual(len(g["packets"]), 2)
+        self.assertTrue(any("assigned" in n for n, _ in g["addresses"]))
+        self.assertTrue(any("subnet[1]" in n for n, _ in g["subnets"]))
+
+    def test_extract_subnet_id(self):
+        self.assertEqual(
+            STATS.extract_subnet_id("subnet[42].assigned-addresses"), 42)
+        self.assertIsNone(STATS.extract_subnet_id("pkt4-received"))
+
+    def test_compute_rate(self):
+        s1 = STATS.Snapshot(1000.0, {"x": 100})
+        s2 = STATS.Snapshot(1010.0, {"x": 200})
+        self.assertEqual(STATS.compute_rate(s1, s2, "x"), 10.0)
+        # без предыдущего снимка — None
+        self.assertIsNone(STATS.compute_rate(None, s2, "x"))
+        # нулевой интервал — None
+        s3 = STATS.Snapshot(1000.0, {"x": 300})
+        self.assertIsNone(STATS.compute_rate(s1, s3, "x"))
+
+    def test_top_subnet(self):
+        m = {
+            "subnet[1].assigned-addresses": 50,
+            "subnet[1].total-addresses": 254,
+            "subnet[2].assigned-addresses": 200,
+            "subnet[2].total-addresses": 254,
+        }
+        top = STATS.top_subnet_by_usage(m)
+        self.assertIsNotNone(top)
+        self.assertEqual(top[0], 2)  # subnet[2] загружен сильнее
+        self.assertGreater(top[1], 70)
+
+    def test_top_subnet_none(self):
+        self.assertIsNone(STATS.top_subnet_by_usage({"pkt4-received": 5}))
+
+
+class TestHooks(unittest.TestCase):
+    def test_enable_disable(self):
+        from kea_manager.model import hooks as H
+        cfg = DhcpConfig.new(4)
+        self.assertFalse(H.is_loaded(cfg.dhcp, "libdhcp_lease_cmds.so"))
+        H.enable(cfg.dhcp, "libdhcp_lease_cmds.so", "/usr/lib64/kea/hooks")
+        self.assertTrue(H.is_loaded(cfg.dhcp, "libdhcp_lease_cmds.so"))
+        entry = H.find_entry(cfg.dhcp, "libdhcp_lease_cmds.so")
+        self.assertTrue(entry["library"].endswith("libdhcp_lease_cmds.so"))
+        H.disable(cfg.dhcp, "libdhcp_lease_cmds.so")
+        self.assertFalse(H.is_loaded(cfg.dhcp, "libdhcp_lease_cmds.so"))
+
+    def test_disable_preserves_others(self):
+        from kea_manager.model import hooks as H
+        cfg = DhcpConfig.new(4)
+        H.enable(cfg.dhcp, "libdhcp_lease_cmds.so")
+        H.enable(cfg.dhcp, "libdhcp_run_script.so")
+        H.disable(cfg.dhcp, "libdhcp_lease_cmds.so")
+        self.assertTrue(H.is_loaded(cfg.dhcp, "libdhcp_run_script.so"))
+        self.assertEqual(len(cfg.dhcp["hooks-libraries"]), 1)
+
+    def test_params_roundtrip(self):
+        from kea_manager.model import hooks as H
+        cfg = DhcpConfig.new(4)
+        H.enable(cfg.dhcp, "libdhcp_run_script.so")
+        H.set_parameters(cfg.dhcp, "libdhcp_run_script.so",
+                         {"name": "/x.sh", "sync": False})
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "h.conf")
+            cfg.save(out)
+            re = DhcpConfig.load(out, 4)
+            p = H.get_parameters(re.dhcp, "libdhcp_run_script.so")
+            self.assertEqual(p["name"], "/x.sh")
+
+    def test_match_by_filename_any_dir(self):
+        from kea_manager.model import hooks as H
+        cfg = DhcpConfig.new(4)
+        # хук прописан с нестандартным каталогом — находим по имени файла
+        cfg.dhcp["hooks-libraries"] = [
+            {"library": "/opt/custom/path/libdhcp_ha.so"}]
+        self.assertTrue(H.is_loaded(cfg.dhcp, "libdhcp_ha.so"))
+
+    def test_d2_hook_marked_not_applicable(self):
+        from kea_manager.model import hooks as H
+        hd = H.known_by_name("libddns_gss_tsig.so")
+        self.assertIsNotNone(hd)
+        self.assertFalse(hd.dhcp_applicable)
+
+
 class TestSettings(unittest.TestCase):
     """Настройки в ini — через подмену XDG_CONFIG_HOME на temp."""
 
@@ -736,6 +915,21 @@ class TestSettings(unittest.TestCase):
     def test_save_last_directory(self):
         SETTINGS.save_last_directory("/etc/kea")
         self.assertEqual(SETTINGS.load()["last"]["directory"], "/etc/kea")
+
+    def test_window_geometry(self):
+        self.assertIsNone(SETTINGS.get_window_geometry())
+        SETTINGS.set_window_geometry("1024x700+120+60")
+        self.assertEqual(SETTINGS.get_window_geometry(), "1024x700+120+60")
+
+    def test_hooks_dir_and_custom(self):
+        self.assertEqual(SETTINGS.get_hooks_dir(), "/usr/lib64/kea/hooks")
+        SETTINGS.set_hooks_dir("/opt/kea/hooks")
+        self.assertEqual(SETTINGS.get_hooks_dir(), "/opt/kea/hooks")
+        self.assertEqual(SETTINGS.get_custom_hooks(), [])
+        SETTINGS.set_custom_hooks(["libdhcp_x.so", "libdhcp_y.so",
+                                   "libdhcp_x.so"])
+        self.assertEqual(SETTINGS.get_custom_hooks(),
+                         ["libdhcp_x.so", "libdhcp_y.so"])
 
     def test_ini_location(self):
         self.assertTrue(SETTINGS.config_path().endswith(
