@@ -45,8 +45,8 @@ HA_LIB_SUFFIX = "libdhcp_ha.so"
 LEASE_CMDS_LIB_SUFFIX = "libdhcp_lease_cmds.so"
 
 # Путь по умолчанию (может отличаться в дистрибутиве; пользователь исправит)
-DEFAULT_HA_LIB = "/usr/lib/kea/hooks/libdhcp_ha.so"
-DEFAULT_LEASE_CMDS_LIB = "/usr/lib/kea/hooks/libdhcp_lease_cmds.so"
+DEFAULT_HA_LIB = "/usr/lib64/kea/hooks/libdhcp_ha.so"
+DEFAULT_LEASE_CMDS_LIB = "/usr/lib64/kea/hooks/libdhcp_lease_cmds.so"
 
 # Режимы HA
 MODE_LOAD_BALANCING = "load-balancing"
